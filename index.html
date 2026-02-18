@@ -429,33 +429,35 @@
 
         // --- 4. RENDER FUNCTION ---
         function renderSite(config) {
-    // 1. Text Updates
-    document.getElementById('displayHandle').innerText = config.handle || "@CreatorName";
-    document.getElementById('displayTagline').innerText = config.tagline || "";
+    console.log("Rendering site with ID:", config.ytId); // Check console for this!
+
+    // 1. Update basic text
+    document.getElementById('displayHandle').innerText = config.handle || "@YourHandle";
+    document.getElementById('displayTagline').innerText = config.tagline || "Content Creator";
     if(config.avatar) document.getElementById('displayAvatar').src = config.avatar;
     
-    // 2. Set Manual Backup first
+    // 2. Set Manual Backup (What shows while loading)
     document.getElementById('statYt').innerText = config.ytSubs || "0";
     document.getElementById('statTwitch').innerText = config.twitchSubs || "0";
     document.getElementById('statInsta').innerText = config.instaSubs || "0";
 
-    // 3. LIVE FETCH (Optimized for Live Hosting)
+    // 3. THE LIVE FETCH (GitHub Pages optimized)
     if (config.ytId && config.ytId.startsWith('UC')) {
         const target = "https://api.socialcounts.org/youtube-live-subscriber-count/" + config.ytId;
         
-        // corsproxy.io is very stable on GitHub Pages
-        fetch("https://corsproxy.io/?" + encodeURIComponent(target))
+        // Using allorigins proxy for GitHub compatibility
+        fetch("https://api.allorigins.win/get?url=" + encodeURIComponent(target))
             .then(res => res.json())
             .then(data => {
-                // If data is direct or wrapped, this finds it
-                const subValue = data.est_sub || (data.contents && JSON.parse(data.contents).est_sub);
+                const stats = JSON.parse(data.contents);
+                console.log("Live data received:", stats);
                 
-                if (subValue) {
-                    // Update your clean number!
-                    document.getElementById('statYt').innerText = Number(subValue).toLocaleString();
+                if (stats && stats.est_sub) {
+                    // Update the number with your CSS formatting
+                    document.getElementById('statYt').innerText = Number(stats.est_sub).toLocaleString();
                 }
             })
-            .catch(err => console.log("Waiting for API response..."));
+            .catch(err => console.log("Waiting for editor input..."));
     }
 
     // 4. Update Social Links
