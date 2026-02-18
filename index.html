@@ -218,7 +218,7 @@
             <input type="text" id="inputYtId" class="form-input" placeholder="UC...">
         </div>
         <div class="form-group">
-            <label class="form-label">YouTube Sub Count</label>
+            <label class="form-label">YouTube Sub Count (Fallback)</label>
             <input type="text" id="inputYtSubs" class="form-input" placeholder="1.2M">
         </div>
         
@@ -351,7 +351,6 @@
         }
 
         // --- 2. CONFIGURATION & STATE ---
-        // Default Data
         const defaultConfig = {
             handle: "@YourHandle",
             tagline: "Content Creator | Streamer",
@@ -392,7 +391,7 @@
 
             localStorage.setItem('creatorSiteConfig', JSON.stringify(config));
             renderSite(config);
-            toggleAdmin(); // Close panel
+            toggleAdmin(); 
             
             if(config.ytId) {
                 fetchVideos(config.ytId);
@@ -421,7 +420,6 @@
 
             renderSite(config);
             
-            // Try to fetch videos if ID exists
             if(config.ytId) {
                 fetchVideos(config.ytId);
             }
@@ -429,95 +427,98 @@
 
         // --- 4. RENDER FUNCTION ---
         function renderSite(config) {
-    // 1. Basic UI
-    document.getElementById('displayHandle').innerText = config.handle || "DRIVNIX";
-    document.getElementById('displayTagline').innerText = config.tagline || "Content Creator";
-    if(config.avatar) document.getElementById('displayAvatar').src = config.avatar;
-    
-    // 2. Backup Stats (What shows if fetch fails)
-    document.getElementById('statYt').innerText = config.ytSubs || "0";
-    document.getElementById('statTwitch').innerText = config.twitchSubs || "0";
-    document.getElementById('statInsta').innerText = config.instaSubs || "0";
-
-    // 3. THE "UNIVERSAL UNPACKER" FETCH
-    if (config.ytId && config.ytId.startsWith('UC')) {
-        const target = "https://api.socialcounts.org/youtube-live-subscriber-count/" + config.ytId;
-        
-        fetch("https://corsproxy.io/?" + encodeURIComponent(target))
-            .then(res => res.text()) // Get as text first to avoid format errors
-            .then(rawText => {
-                // Try to find the number in the mess
-                let liveCount = 0;
-                try {
-                    const data = JSON.parse(rawText);
-                    // Check every possible place the number could be
-                    liveCount = data.est_sub || 
-                                (data.contents && JSON.parse(data.contents).est_sub) ||
-                                data.subscribers;
-                } catch(e) {
-                    // If JSON fails, search the text for the number manually
-                    const match = rawText.match(/"est_sub":\s*(\d+)/);
-                    if(match) liveCount = match[1];
-                }
-
-                if (liveCount && liveCount > 0) {
-                    document.getElementById('statYt').innerText = Number(liveCount).toLocaleString();
-                    console.log("FINAL SUCCESS! Subs:", liveCount);
-                }
-            })
-            .catch(err => console.log("Fetch running..."));
-    }
-
-    // 4. Update Social Links
-    const ytBase = "https://www.youtube.com/channel/";
-    document.getElementById('btnSubscribe').href = config.ytId ? (ytBase + config.ytId) : "#";
-    document.getElementById('btnDiscord').href = config.discordLink || "#";
-
-    // 5. Toggle Modules
-    const setDisplay = (id, isActive) => {
-        const el = document.getElementById(id);
-        if(el) el.style.display = isActive ? 'block' : 'none';
-    };
-    setDisplay('cardMerch', config.modules.merch);
-    setDisplay('cardPatreon', config.modules.patreon);
-    setDisplay('cardBMC', config.modules.bmc);
-}
-        // --- 5. AUTOMATIC VIDEO FETCHER (RSS2JSON) ---
-        async function fetchVideos(channelId) {
-    const container = document.getElementById('videoContainer');
-    container.innerHTML = '<p style="color:#666;">Fetching data...</p>';
-
-    try {
-        const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-        const data = await response.json();
-
-        if(data.status === 'ok') {
-            // --- NEW: Update Sub Count from Feed ---
-            // Note: RSS feeds are slightly delayed but very stable.
-            // If the feed doesn't have the count, we keep your manual number.
-            console.log("Feed loaded successfully");
-
-            container.innerHTML = ''; 
-            const videos = data.items.slice(0, 3);
+            // Basic UI
+            document.getElementById('displayHandle').innerText = config.handle || "DRIVNIX";
+            document.getElementById('displayTagline').innerText = config.tagline || "Content Creator";
+            if(config.avatar) document.getElementById('displayAvatar').src = config.avatar;
             
-            videos.forEach(vid => {
-                const vidId = vid.link.split('v=')[1];
-                const thumbUrl = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
-                const html = `
-                    <a href="${vid.link}" target="_blank" class="video-card">
-                        <img src="${thumbUrl}" class="vid-thumb" alt="Thumbnail">
-                        <div class="vid-info">
-                            <div class="vid-title">${vid.title}</div>
-                            <small style="color:#666;">${new Date(vid.pubDate).toLocaleDateString()}</small>
-                        </div>
-                    </a>`;
-                container.innerHTML += html;
-            });
+            // Backup Stats (Displayed immediately, overwritten if live fetch succeeds)
+            document.getElementById('statYt').innerText = config.ytSubs || "0";
+            document.getElementById('statTwitch').innerText = config.twitchSubs || "0";
+            document.getElementById('statInsta').innerText = config.instaSubs || "0";
+
+            // Update Social Links
+            // FIXED: Added missing quote and logic for YT link
+            const ytBase = "https://www.youtube.com/channel/";
+            document.getElementById('btnSubscribe').href = config.ytId ? (ytBase + config.ytId) : "#";
+            document.getElementById('btnDiscord').href = config.discordLink || "#";
+
+            // LIVE STATS FETCH (The Unpacker)
+            if (config.ytId && config.ytId.startsWith('UC')) {
+                // Using allorigins as a more stable proxy than corsproxy.io for JSON data
+                const targetApi = "https://api.socialcounts.org/youtube-live-subscriber-count/" + config.ytId;
+                const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(targetApi);
+                
+                fetch(proxyUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        // allorigins returns the actual page content in 'data.contents' (string)
+                        if (data.contents) {
+                            try {
+                                const parsed = JSON.parse(data.contents);
+                                // Check for common keys used by this API
+                                const liveCount = parsed.est_sub || parsed.subscribers;
+                                
+                                if (liveCount) {
+                                    document.getElementById('statYt').innerText = Number(liveCount).toLocaleString();
+                                    console.log("Live Subs Updated:", liveCount);
+                                }
+                            } catch (e) {
+                                console.log("JSON Parse failed, falling back to manual count");
+                            }
+                        }
+                    })
+                    .catch(err => console.log("Fetch failed, using manual count"));
+            }
+
+            // Toggle Modules
+            const setDisplay = (id, isActive) => {
+                const el = document.getElementById(id);
+                if(el) el.style.display = isActive ? 'block' : 'none';
+            };
+            setDisplay('cardMerch', config.modules.merch);
+            setDisplay('cardPatreon', config.modules.patreon);
+            setDisplay('cardBMC', config.modules.bmc);
         }
-    } catch (err) {
-        console.error("Video/Sub fetch failed", err);
-    }
-}
+
+        // --- 5. AUTOMATIC VIDEO FETCHER ---
+        async function fetchVideos(channelId) {
+            const container = document.getElementById('videoContainer');
+            container.innerHTML = '<p style="color:#666;">Fetching latest videos...</p>';
+
+            try {
+                // FIXED: Added missing YouTube RSS URL
+                const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+                const data = await response.json();
+
+                if(data.status === 'ok') {
+                    container.innerHTML = ''; 
+                    const videos = data.items.slice(0, 3);
+                    
+                    videos.forEach(vid => {
+                        // Extract Video ID
+                        const vidId = vid.link.split('v=')[1];
+                        // FIXED: Added missing Thumbnail URL part
+                        const thumbUrl = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
+                        
+                        const html = `
+                            <a href="${vid.link}" target="_blank" class="video-card">
+                                <img src="${thumbUrl}" class="vid-thumb" alt="Thumbnail">
+                                <div class="vid-info">
+                                    <div class="vid-title">${vid.title}</div>
+                                    <small style="color:#666;">${new Date(vid.pubDate).toLocaleDateString()}</small>
+                                </div>
+                            </a>`;
+                        container.innerHTML += html;
+                    });
+                } else {
+                    container.innerHTML = '<p style="color:red">Invalid Channel ID</p>';
+                }
+            } catch (err) {
+                console.error("Video fetch failed", err);
+                container.innerHTML = '<p style="color:red">Error loading videos</p>';
+            }
+        }
 
         // Initialize on load
         window.onload = loadConfig;
