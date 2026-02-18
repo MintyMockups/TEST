@@ -429,42 +429,42 @@
 
         // --- 4. RENDER FUNCTION ---
         function renderSite(config) {
-    // 1. Basic UI Updates
+    // 1. Basic Info
     document.getElementById('displayHandle').innerText = config.handle || "DRIVNIX";
     document.getElementById('displayTagline').innerText = config.tagline || "Content Creator";
     if(config.avatar) document.getElementById('displayAvatar').src = config.avatar;
     
-    // 2. Initial Stats (Show manual input as backup)
+    // 2. Initial Stats (Manual Backup)
     document.getElementById('statYt').innerText = config.ytSubs || "0";
     document.getElementById('statTwitch').innerText = config.twitchSubs || "0";
     document.getElementById('statInsta').innerText = config.instaSubs || "0";
 
-    // 3. THE LIVE FETCH (New Proxy for GitHub)
+    // 3. THE FINAL LIVE FETCH FIX
     if (config.ytId && config.ytId.startsWith('UC')) {
         const target = "https://api.socialcounts.org/youtube-live-subscriber-count/" + config.ytId;
         
-        // Switching to corsproxy.io to fix the 522 error
+        // We use corsproxy.io because your screenshot shows it is WORKING (Status 200)!
         fetch("https://corsproxy.io/?" + encodeURIComponent(target))
-            .then(res => res.json())
-            .then(data => {
-                // If data comes back clean or wrapped, this will find it
-                const liveCount = data.est_sub || (data.contents && JSON.parse(data.contents).est_sub);
+            .then(res => res.text()) // We get it as text first to be safe
+            .then(text => {
+                const data = JSON.parse(text);
+                // We check every possible place the number could be hiding
+                const liveCount = data.est_sub || data.subscribers || (data.contents && JSON.parse(data.contents).est_sub);
                 
                 if (liveCount) {
                     document.getElementById('statYt').innerText = Number(liveCount).toLocaleString();
-                    console.log("Live Subs Found:", liveCount);
+                    console.log("SUCCESS! Count is:", liveCount);
                 }
             })
-            .catch(err => {
-                console.log("Live fetch failed, using manual backup.");
-            });
+            .catch(err => console.log("Fetch error:", err));
     }
 
-    // 4. Links & Modules
+    // 4. Update Links
     const ytBase = "https://www.youtube.com/channel/";
     document.getElementById('btnSubscribe').href = config.ytId ? (ytBase + config.ytId) : "#";
     document.getElementById('btnDiscord').href = config.discordLink || "#";
 
+    // 5. Toggle Modules
     const setDisplay = (id, isActive) => {
         const el = document.getElementById(id);
         if(el) el.style.display = isActive ? 'block' : 'none';
