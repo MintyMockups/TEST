@@ -429,43 +429,42 @@
 
         // --- 4. RENDER FUNCTION ---
         function renderSite(config) {
-    console.log("Rendering site with ID:", config.ytId); // Check console for this!
-
-    // 1. Update basic text
-    document.getElementById('displayHandle').innerText = config.handle || "@YourHandle";
+    // 1. Basic UI Updates
+    document.getElementById('displayHandle').innerText = config.handle || "DRIVNIX";
     document.getElementById('displayTagline').innerText = config.tagline || "Content Creator";
     if(config.avatar) document.getElementById('displayAvatar').src = config.avatar;
     
-    // 2. Set Manual Backup (What shows while loading)
+    // 2. Initial Stats (Show manual input as backup)
     document.getElementById('statYt').innerText = config.ytSubs || "0";
     document.getElementById('statTwitch').innerText = config.twitchSubs || "0";
     document.getElementById('statInsta').innerText = config.instaSubs || "0";
 
-    // 3. THE LIVE FETCH (GitHub Pages optimized)
+    // 3. THE LIVE FETCH (New Proxy for GitHub)
     if (config.ytId && config.ytId.startsWith('UC')) {
         const target = "https://api.socialcounts.org/youtube-live-subscriber-count/" + config.ytId;
         
-        // Using allorigins proxy for GitHub compatibility
-        fetch("https://api.allorigins.win/get?url=" + encodeURIComponent(target))
+        // Switching to corsproxy.io to fix the 522 error
+        fetch("https://corsproxy.io/?" + encodeURIComponent(target))
             .then(res => res.json())
             .then(data => {
-                const stats = JSON.parse(data.contents);
-                console.log("Live data received:", stats);
+                // If data comes back clean or wrapped, this will find it
+                const liveCount = data.est_sub || (data.contents && JSON.parse(data.contents).est_sub);
                 
-                if (stats && stats.est_sub) {
-                    // Update the number with your CSS formatting
-                    document.getElementById('statYt').innerText = Number(stats.est_sub).toLocaleString();
+                if (liveCount) {
+                    document.getElementById('statYt').innerText = Number(liveCount).toLocaleString();
+                    console.log("Live Subs Found:", liveCount);
                 }
             })
-            .catch(err => console.log("Waiting for editor input..."));
+            .catch(err => {
+                console.log("Live fetch failed, using manual backup.");
+            });
     }
 
-    // 4. Update Social Links
+    // 4. Links & Modules
     const ytBase = "https://www.youtube.com/channel/";
     document.getElementById('btnSubscribe').href = config.ytId ? (ytBase + config.ytId) : "#";
     document.getElementById('btnDiscord').href = config.discordLink || "#";
 
-    // 5. Toggle Modules
     const setDisplay = (id, isActive) => {
         const el = document.getElementById(id);
         if(el) el.style.display = isActive ? 'block' : 'none';
