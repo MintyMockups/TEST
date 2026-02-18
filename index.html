@@ -340,7 +340,7 @@
     </section>
 
     <footer style="text-align:center; padding:3rem; color:#444; font-size:0.8rem;">
-        &copy; 2024 Powered by CreatorHub
+        &copy; 2026 Powered by CreatorHub
     </footer>
 
     <!-- JAVASCRIPT LOGIC -->
@@ -429,37 +429,46 @@
 
         // --- 4. RENDER FUNCTION ---
         function renderSite(config) {
-    // 1. Basic Info
+    // 1. Basic UI
     document.getElementById('displayHandle').innerText = config.handle || "DRIVNIX";
     document.getElementById('displayTagline').innerText = config.tagline || "Content Creator";
     if(config.avatar) document.getElementById('displayAvatar').src = config.avatar;
     
-    // 2. Initial Stats (Manual Backup)
+    // 2. Backup Stats (What shows if fetch fails)
     document.getElementById('statYt').innerText = config.ytSubs || "0";
     document.getElementById('statTwitch').innerText = config.twitchSubs || "0";
     document.getElementById('statInsta').innerText = config.instaSubs || "0";
 
-    // 3. THE FINAL LIVE FETCH FIX
+    // 3. THE "UNIVERSAL UNPACKER" FETCH
     if (config.ytId && config.ytId.startsWith('UC')) {
         const target = "https://api.socialcounts.org/youtube-live-subscriber-count/" + config.ytId;
         
-        // We use corsproxy.io because your screenshot shows it is WORKING (Status 200)!
         fetch("https://corsproxy.io/?" + encodeURIComponent(target))
-            .then(res => res.text()) // We get it as text first to be safe
-            .then(text => {
-                const data = JSON.parse(text);
-                // We check every possible place the number could be hiding
-                const liveCount = data.est_sub || data.subscribers || (data.contents && JSON.parse(data.contents).est_sub);
-                
-                if (liveCount) {
+            .then(res => res.text()) // Get as text first to avoid format errors
+            .then(rawText => {
+                // Try to find the number in the mess
+                let liveCount = 0;
+                try {
+                    const data = JSON.parse(rawText);
+                    // Check every possible place the number could be
+                    liveCount = data.est_sub || 
+                                (data.contents && JSON.parse(data.contents).est_sub) ||
+                                data.subscribers;
+                } catch(e) {
+                    // If JSON fails, search the text for the number manually
+                    const match = rawText.match(/"est_sub":\s*(\d+)/);
+                    if(match) liveCount = match[1];
+                }
+
+                if (liveCount && liveCount > 0) {
                     document.getElementById('statYt').innerText = Number(liveCount).toLocaleString();
-                    console.log("SUCCESS! Count is:", liveCount);
+                    console.log("FINAL SUCCESS! Subs:", liveCount);
                 }
             })
-            .catch(err => console.log("Fetch error:", err));
+            .catch(err => console.log("Fetch running..."));
     }
 
-    // 4. Update Links
+    // 4. Update Social Links
     const ytBase = "https://www.youtube.com/channel/";
     document.getElementById('btnSubscribe').href = config.ytId ? (ytBase + config.ytId) : "#";
     document.getElementById('btnDiscord').href = config.discordLink || "#";
